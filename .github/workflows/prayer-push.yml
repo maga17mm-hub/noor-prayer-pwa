@@ -20,12 +20,14 @@ jobs:
           const token=process.env.NOOR_SITES_TOKEN;
           if(!origin||!token)throw new Error('Configure NOOR_SITE_URL and NOOR_SITES_TOKEN repository secrets');
           const until=Date.now()+285000;
+          let successes=0;
           do {
             try {
               const r=await fetch(new URL('/api/push/dispatch',origin),{method:'POST',headers:{'OAI-Sites-Authorization':'Bearer '+token},signal:AbortSignal.timeout(25000),redirect:'error'});
               if(!r.ok)throw new Error('Dispatch status '+r.status);
-              const d=await r.json();console.log(JSON.stringify({at:d.timestamp,checked:d.checked,sent:d.sent,failed:d.failed,expired:d.expired}));
+              const d=await r.json();if(d.ok)successes++;console.log(JSON.stringify({at:d.timestamp,checked:d.checked,sent:d.sent,failed:d.failed,expired:d.expired}));
             } catch(e) { console.error(e.message); }
             if(Date.now()<until)await new Promise(r=>setTimeout(r,20000));
           } while(Date.now()<until);
+          if(!successes)throw new Error('No successful reminder dispatches in this run');
           NODE

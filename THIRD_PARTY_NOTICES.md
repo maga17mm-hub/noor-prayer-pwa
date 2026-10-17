@@ -20,7 +20,7 @@ Amiri Quran, SIL Open Font License 1.1. Source: https://github.com/aliftype/amir
 
 ## Liquid Glass study
 
-Reference: iyinchao/liquid-glass-studio, MIT. Its license is included in `licenses/liquid-glass-studio.txt`. The app implements its own DOM refraction map inspired by the reference's Snell-law optical model, index of refraction 1.4, Fresnel and directional glare study. Safari uses a blur and highlights fallback.
+Reference: iyinchao/liquid-glass-studio, MIT. Its license is included in `licenses/liquid-glass-studio.txt`. The original WebGL2 MultiPassRenderer and optical GLSL source files are vendored without changes in lib/liquid-glass-studio. UPSTREAM.json records their SHA256 hashes. The integration supplies a texture of the real DOM backing and the reference's default optical uniforms. It expands GLSL includes and masks output alpha outside the glass silhouette; optical shader equations are retained. Geometry is sized to the application's control bounds. html2canvas (MIT) produces the backing texture. The simple CSS fallback is used only when WebGL2/EXT_color_buffer_float is unavailable or transparency is explicitly reduced.
 
 ## Other
 

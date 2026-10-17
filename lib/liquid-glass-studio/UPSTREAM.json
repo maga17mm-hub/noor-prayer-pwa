@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/iyinchao/liquid-glass-studio",
+  "license": "MIT",
+  "files": {
+    "GLUtils.ts": "881bad39fa601debbd5185128405b9f275c3d67aa7bcb5dd16a228331a5e3cda",
+    "shaders/fragment-bg-hblur.glsl": "3e481060b7e9a628c5875df60de0a78a3512781ed804a7043227ccbf2b5a5917",
+    "shaders/fragment-bg-vblur.glsl": "90eec79564c59af29bc29b768f5626c4fdc0a51c69c03bb0bf45c8b4262e87fb",
+    "shaders/fragment-bg.glsl": "fa6214e86bbae4923719067f480d827107854b3e47844b1fd71a8448e950d803",
+    "shaders/fragment-main.glsl": "fa2108ca4a71bbdf15b93b2954c4dbd2164e55b37dc581b6926c76b0eaf8afc9",
+    "shaders/lib/color.glsl": "0f07b667a00e925061160e99b599f193729c2ea69b92306f1b7fe6dd05bb43d3",
+    "shaders/lib/math.glsl": "d3b3f670963fc312cc97ec54b8d1b83126fda3d499a62a921c2377bd48f08290",
+    "shaders/lib/sdf.glsl": "947f194ff9c6f20d248fd46129843142e6be841c5641c5fc23093b76db90e324",
+    "shaders/vertex.glsl": "0fc72d79d41899be45201d1807671a49513879db68d622cccbb67efa1f1f3918"
+  }
+}

@@ -3,9 +3,15 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {createECDH,randomBytes} from 'node:crypto';
+import {createHash} from 'node:crypto';
 import {calculate,nextPrayer,dayInZone,formatTime,qibla,calendar,DEFAULT_SETTINGS,DEFAULT_PLACE} from '../lib/prayers';
 import {SURAH_NAMES,SURAH_MEANINGS} from '../lib/surah-names';
 import {pushRoutes,safeEndpoint} from '../lib/push-server';
+import {ADHKAR,ADHKAR_GROUPS,getPrayerAdhkar} from '../lib/adhkar';
+
+test('The original Liquid Glass Studio renderer and optical shaders are preserved byte for byte',()=>{const root='lib/liquid-glass-studio/';const upstream=JSON.parse(readFileSync(root+'UPSTREAM.json','utf8'));for(const [file,expected] of Object.entries(upstream.files)){const actual=createHash('sha256').update(readFileSync(root+file)).digest('hex');assert.equal(actual,expected,file);}assert.ok(Object.keys(upstream.files).includes('shaders/fragment-main.glsl'));assert.ok(Object.keys(upstream.files).includes('GLUtils.ts'));});
+test('Morning, evening and post-prayer adhkar are distinct and retain their correct reading order',()=>{assert.equal(new Set(ADHKAR.map(d=>d.id)).size,ADHKAR.length);for(const ids of Object.values(ADHKAR_GROUPS)){assert.equal(ids.length,new Set(ids).size);for(const id of ids)assert.ok(ADHKAR.some(d=>d.id===id));}const first=(g:keyof typeof ADHKAR_GROUPS)=>ADHKAR.find(d=>d.id===ADHKAR_GROUPS[g][0])!;assert.match(first('morning').arabic,/أَصْبَحْنَا/);assert.match(first('evening').arabic,/أَمْسَيْنَا/);assert.notEqual(first('morning').arabic,first('evening').arabic);assert.deepEqual(ADHKAR_GROUPS.prayer.slice(0,3),['astaghfir','salam','prayer-tawhid']);assert.ok(ADHKAR_GROUPS.morning.includes('morning-praise'));assert.ok(!ADHKAR_GROUPS.evening.includes('morning-praise'));assert.ok(ADHKAR_GROUPS.evening.includes('protection'));assert.ok(!ADHKAR_GROUPS.morning.includes('protection'));});
+test('Post-salah short surahs use once normally and three times after Fajr/Maghrib',()=>{for(const p of ['Dhuhr','Asr','Isha'])for(const d of getPrayerAdhkar(p).filter(d=>['prayer-ikhlas','prayer-falaq','prayer-nas'].includes(d.id)))assert.equal(d.target,1);for(const p of ['Fajr','Maghrib'])for(const d of getPrayerAdhkar(p).filter(d=>['prayer-ikhlas','prayer-falaq','prayer-nas'].includes(d.id)))assert.equal(d.target,3);assert.equal(getPrayerAdhkar('Fajr').find(d=>d.id==='prayer-tawhid')?.target,1);});
 
 test('Quran contains all 114 surahs and exactly 6236 aligned Arabic/Russian verses',()=>{
  const a=JSON.parse(readFileSync('public/data/arabic.json','utf8')),r=JSON.parse(readFileSync('public/data/russian.json','utf8'));assert.equal(a.length,114);assert.equal(r.length,114);assert.equal(SURAH_NAMES.length,114);assert.equal(SURAH_MEANINGS.length,114);let count=0;const pages=new Set<number>();
