@@ -8,8 +8,10 @@ import {calculate,nextPrayer,dayInZone,formatTime,qibla,calendar,DEFAULT_SETTING
 import {SURAH_NAMES,SURAH_MEANINGS} from '../lib/surah-names';
 import {pushRoutes,safeEndpoint} from '../lib/push-server';
 import {ADHKAR,ADHKAR_GROUPS,getPrayerAdhkar} from '../lib/adhkar';
+import {lensOffset,roundedDistance} from '../lib/liquid-glass-studio/refraction-map';
 
 test('The original Liquid Glass Studio renderer and optical shaders are preserved byte for byte',()=>{const root='lib/liquid-glass-studio/';const upstream=JSON.parse(readFileSync(root+'UPSTREAM.json','utf8'));for(const [file,expected] of Object.entries(upstream.files)){const actual=createHash('sha256').update(readFileSync(root+file)).digest('hex');assert.equal(actual,expected,file);}assert.ok(Object.keys(upstream.files).includes('shaders/fragment-main.glsl'));assert.ok(Object.keys(upstream.files).includes('GLUtils.ts'));});
+test('The compositor lens has a bounded refraction edge and an undistorted center',()=>{assert.equal(lensOffset(20),0);assert.equal(lensOffset(50),0);assert.equal(lensOffset(-1),0);let previous=1;for(let d=0;d<=20;d+=.1){const value=lensOffset(d);assert.ok(Number.isFinite(value)&&value>=0&&value<=1);assert.ok(value<=previous);previous=value;}assert.equal(roundedDistance(150,30,300,60,30),-30);assert.equal(roundedDistance(150,0,300,60,30),0);assert.ok(roundedDistance(0,0,300,60,30)>0);});
 test('Morning, evening and post-prayer adhkar are distinct and retain their correct reading order',()=>{assert.equal(new Set(ADHKAR.map(d=>d.id)).size,ADHKAR.length);for(const ids of Object.values(ADHKAR_GROUPS)){assert.equal(ids.length,new Set(ids).size);for(const id of ids)assert.ok(ADHKAR.some(d=>d.id===id));}const first=(g:keyof typeof ADHKAR_GROUPS)=>ADHKAR.find(d=>d.id===ADHKAR_GROUPS[g][0])!;assert.match(first('morning').arabic,/أَصْبَحْنَا/);assert.match(first('evening').arabic,/أَمْسَيْنَا/);assert.notEqual(first('morning').arabic,first('evening').arabic);assert.deepEqual(ADHKAR_GROUPS.prayer.slice(0,3),['astaghfir','salam','prayer-tawhid']);assert.ok(ADHKAR_GROUPS.morning.includes('morning-praise'));assert.ok(!ADHKAR_GROUPS.evening.includes('morning-praise'));assert.ok(ADHKAR_GROUPS.evening.includes('protection'));assert.ok(!ADHKAR_GROUPS.morning.includes('protection'));});
 test('Post-salah short surahs use once normally and three times after Fajr/Maghrib',()=>{for(const p of ['Dhuhr','Asr','Isha'])for(const d of getPrayerAdhkar(p).filter(d=>['prayer-ikhlas','prayer-falaq','prayer-nas'].includes(d.id)))assert.equal(d.target,1);for(const p of ['Fajr','Maghrib'])for(const d of getPrayerAdhkar(p).filter(d=>['prayer-ikhlas','prayer-falaq','prayer-nas'].includes(d.id)))assert.equal(d.target,3);assert.equal(getPrayerAdhkar('Fajr').find(d=>d.id==='prayer-tawhid')?.target,1);});
 
@@ -27,6 +29,8 @@ test('Push endpoints reject SSRF destinations and accept supported browser servi
 
 function memoryD1(){const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_busy_killraven.sql','utf8').replaceAll('--> statement-breakpoint',''));const prepare=(sql:string)=>{const statement=sqlite.prepare(sql);let args:any[]=[];const obj={bind(...v:any[]){args=v;return obj;},async first(){return statement.get(...args)||null;},async all(){return {results:statement.all(...args)};},async run(){const r=statement.run(...args);return {success:true,meta:{changes:Number(r.changes)}};}};return obj;};return {prepare,batch:async (items:any[])=>Promise.all(items.map(x=>x.run()))} as unknown as D1Database;}
 function req(path:string,body?:unknown,user='alice',origin?:string){return new Request('https://noor.test/api/push/'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(user?{'oai-authenticated-user-id':user}:{}),...(origin?{origin}:{})},body:body===undefined?undefined:JSON.stringify(body)});}
+const CRON_SECRET='unit-test-cron-'+ 'a'.repeat(64);
+function cronRequest(token=CRON_SECRET){const r=req('dispatch',{},'');r.headers.set('Authorization','Bearer '+token);return r;}
 test('Push registration enforces identity, origin, ownership, real encryption and delivery deduplication',async t=>{
  t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-17T02:08:00Z')});const db=memoryD1();
  assert.equal((await pushRoutes(req('subscribe',{},''),db))?.status,401);
@@ -37,8 +41,30 @@ test('Push registration enforces identity, origin, ownership, real encryption an
  assert.equal((await pushRoutes(req('subscribe',body,'bob'),db))?.status,403);
  assert.equal((await pushRoutes(req('unsubscribe',{endpoint:subscription.endpoint},'bob'),db))?.status,403);
  const requests:any[]=[];t.mock.method(globalThis,'fetch',async (url:any,init:any)=>{requests.push({url,init});return new Response('',{status:201});});
- const first=await (await pushRoutes(req('dispatch',{}),db))!.json() as any;assert.equal(first.sent,1);assert.equal(requests.length,1);assert.equal(requests[0].init.headers['Content-Encoding'],'aes128gcm');assert.ok(requests[0].init.headers.Authorization||requests[0].init.headers.authorization);assert.ok(requests[0].init.body.length>100);
- const second=await (await pushRoutes(req('dispatch',{}),db))!.json() as any;assert.equal(second.sent,0);assert.equal(requests.length,1);
+ const first=await (await pushRoutes(cronRequest(),db,CRON_SECRET))!.json() as any;assert.equal(first.sent,1);assert.equal(requests.length,1);assert.equal(requests[0].init.headers['Content-Encoding'],'aes128gcm');assert.ok(requests[0].init.headers.Authorization||requests[0].init.headers.authorization);assert.ok(requests[0].init.body.length>100);
+ const second=await (await pushRoutes(cronRequest(),db,CRON_SECRET))!.json() as any;assert.equal(second.sent,0);assert.equal(requests.length,1);
  const status=await (await pushRoutes(req('status'),db))!.json() as any;assert.equal(status.scheduler,true);
  assert.equal((await pushRoutes(req('unsubscribe',{endpoint:subscription.endpoint}),db))?.status,200);
+});
+
+test('Public push supports anonymous devices and keeps cron and other subscriptions protected',async()=>{
+ const db=memoryD1(),token='b'.repeat(64),other='c'.repeat(64);
+ const device=(path:string,body:unknown,key=token,origin='https://noor.test')=>{const r=req(path,body,'',origin);r.headers.set('X-Noor-Device-Token',key);return r;};
+ const ec=createECDH('prime256v1');ec.generateKeys();const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/public-device',keys:{p256dh:ec.getPublicKey().toString('base64url'),auth:randomBytes(16).toString('base64url')}};
+ const body={subscription,place:DEFAULT_PLACE,settings:DEFAULT_SETTINGS};
+ assert.equal((await pushRoutes(device('subscribe',body,'bad'),db))?.status,401);
+ assert.equal((await pushRoutes(device('subscribe',body,token,'https://evil.test'),db))?.status,403);
+ assert.equal((await pushRoutes(req('subscribe',body),db))?.status,200);
+ assert.equal((await pushRoutes(device('subscribe',body),db))?.status,200);
+ assert.equal((await pushRoutes(req('unsubscribe',{endpoint:subscription.endpoint}),db))?.status,403);
+ const endpoint={endpoint:subscription.endpoint};
+ assert.equal((await pushRoutes(device('unsubscribe',endpoint,other),db))?.status,403);
+ assert.equal((await pushRoutes(device('test',endpoint,other),db))?.status,403);
+ assert.equal((await pushRoutes(device('subscribe',{...body,subscription:{...subscription,keys:{...subscription.keys,auth:randomBytes(16).toString('base64url')}}},other),db))?.status,403);
+ assert.equal((await pushRoutes(req('dispatch',{}),db))?.status,503);
+ assert.equal((await pushRoutes(req('dispatch',{}),db,CRON_SECRET))?.status,401);
+ assert.equal((await pushRoutes(cronRequest('wrong'),db,CRON_SECRET))?.status,401);
+ assert.equal((await pushRoutes(device('dispatch',{}),db,CRON_SECRET))?.status,401);
+ assert.equal((await pushRoutes(device('unsubscribe',endpoint),db))?.status,200);
+ assert.equal((await pushRoutes(cronRequest(),db,CRON_SECRET))?.status,200);
 });

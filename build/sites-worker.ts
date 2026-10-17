@@ -5,7 +5,7 @@ import { pushRoutes,dispatch } from '../lib/push-server';
 
 export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
-    const push=await pushRoutes(request,env.DB);if(push)return push;
+    const push=await pushRoutes(request,env.DB,env.NOOR_CRON_TOKEN);if(push)return push;
     const url=new URL(request.url);
     if(url.pathname.startsWith('/api/mushaf/')){
       const page=Number(url.pathname.split('/').pop());

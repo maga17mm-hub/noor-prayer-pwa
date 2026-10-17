@@ -20,7 +20,7 @@ Amiri Quran, SIL Open Font License 1.1. Source: https://github.com/aliftype/amir
 
 ## Liquid Glass study
 
-Reference: iyinchao/liquid-glass-studio, MIT. Its license is included in `licenses/liquid-glass-studio.txt`. The original WebGL2 MultiPassRenderer and optical GLSL source files are vendored without changes in lib/liquid-glass-studio. UPSTREAM.json records their SHA256 hashes. The integration supplies a texture of the real DOM backing and the reference's default optical uniforms. It expands GLSL includes and masks output alpha outside the glass silhouette; optical shader equations are retained. Geometry is sized to the application's control bounds. html2canvas (MIT) produces the backing texture. The simple CSS fallback is used only when WebGL2/EXT_color_buffer_float is unavailable or transparency is explicitly reduced.
+Reference: iyinchao/liquid-glass-studio, MIT. Its license is included in `licenses/liquid-glass-studio.txt`. The original WebGL2 MultiPassRenderer and optical GLSL source files are preserved as an unmodified reference in lib/liquid-glass-studio; UPSTREAM.json records their SHA256 hashes. They are no longer imported by the scrolling application runtime. The live material uses the browser compositor, with a static SVG displacement field in Chromium (rounded SDF and Snell refraction profile adapted from the reference) and native backdrop filtering in WebKit/Gecko. This adaptation does not reproduce every pass of the WebGL demo. Geometry is calculated only on control resize, with no DOM captures, scroll handlers or continuous WebGL rendering.
 
 ## Other
 
